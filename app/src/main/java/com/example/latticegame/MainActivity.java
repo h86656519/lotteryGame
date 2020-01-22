@@ -11,13 +11,13 @@ import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
 import java.util.Random;
 
 
 /**
- * 九宮格抽獎 1.0
- * 邏輯:沒中獎的就喚回上一個按過的格子
- * 缺點:邏輯只能走中獎一次之後就不能玩了
+ * 九宮格抽獎 2.0
+ * 邏輯: 單選，按了2秒後蓋牌，直到按中後再蓋牌
  */
 public class MainActivity extends AppCompatActivity {
     private String TAG = "MainActivity";
@@ -30,44 +30,57 @@ public class MainActivity extends AppCompatActivity {
     private int lastSelectNum = -1;
     ImageView imageView;
     ImageView preImageView;
+    Myadapter adapter;
+    ArrayList list = new ArrayList();
+    Random r = new Random();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Myadapter adapter = new Myadapter(MainActivity.this, text, unselect);
+        adapter = new Myadapter(MainActivity.this, text, unselect);
         gridview = (GridView) findViewById(R.id.gridview);
-        gridview.setAdapter(adapter);
-        gridview.setChoiceMode(GridView.CHOICE_MODE_MULTIPLE);
+        setLattice();
+//        gridview.setChoiceMode(GridView.CHOICE_MODE_SINGLE);
         gridview.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Toast.makeText(MainActivity.this, "你選取了" + text[+position], Toast.LENGTH_SHORT).show();
                 View childview = gridview.getChildAt(position); //取得子view 做修改
                 imageView = childview.findViewById(R.id.grid_image);
-                Random r = new Random();
+                gridview.setEnabled(false); //用按下了後直接禁按，直到蓋牌或中獎後在解禁，來達到單選的效果
                 int DiceNum = r.nextInt(100);
                 Log.i(TAG, "DiceNum: " + DiceNum);
-                Log.i(TAG, "position: "+ position);
+                Log.i(TAG, "position: " + position);
                 Log.i(TAG, "lastSelectNum: " + lastSelectNum);
-                if (DiceNum < 50) { //沒中
-                    if (lastSelectNum != position && lastSelectNum != -1) {
-                        setUnselect(lastSelectNum); //把上一個按過的格子換回
-                    }
-                    imageView.setImageResource(R.drawable.lose); //沒中就要變
+                if (DiceNum < 70) { //沒中
+                    list.add(position);
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                imageView.setImageResource(R.drawable.lose); //沒中就顯示2s 之後蓋牌
+                                Thread.sleep(2000);
+                                setLattice();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }).start();
                 } else {
                     imageView.setImageResource(unselect[position]);
+                    gridview.setEnabled(true);
                     showDialog();
                 }
-                lastSelectNum = position;
+
             }
         });
     }
 
     private void setUnselect(int lastPosition) {
         View preChildview = gridview.getChildAt(lastPosition);
-        preImageView =  preChildview.findViewById(R.id.grid_image);
+        preImageView = preChildview.findViewById(R.id.grid_image);
         preImageView.setImageResource(unselect[lastPosition]);
     }
 
@@ -88,6 +101,21 @@ public class MainActivity extends AppCompatActivity {
 //                }
 //            }
 //        }).start();
+    }
+
+    private void setLattice() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                gridview.setAdapter(adapter);
+                gridview.setEnabled(true);
+            }
+        });
+        if (list.size() > 1) {
+            list.clear();
+        }
+        Log.i(TAG, "list size: " + list.size());
+
     }
 
 }
